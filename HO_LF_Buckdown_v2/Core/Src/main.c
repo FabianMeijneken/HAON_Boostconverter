@@ -107,7 +107,7 @@ int main(void)
 
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
-  set_PWM_duty(&htim1, TIM_CHANNEL_1, 0.5f);
+  set_PWM_duty(&htim1, TIM_CHANNEL_1, 0.0f);
   set_PWM_duty(&htim1, TIM_CHANNEL_2, 0.5f);
 
   uint8_t UART_Rx_buf[16] = {0};
@@ -126,18 +126,23 @@ int main(void)
   while (1)
   {
 	// Get new ADC value
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 100);	// Give the ADC 100ms to convert.
-	adc_value = HAL_ADC_GetValue(&hadc1);
+  if (HAL_ADC_Start(&hadc1) == HAL_OK &&
+    HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)	// Give the ADC 100ms to convert.
+  {
+    adc_value = HAL_ADC_GetValue(&hadc1);
+  }
+  HAL_ADC_Stop(&hadc1);
 	float adc_voltage = ADC_to_V(adc_value);
 //	set_PWM_duty(&htim1, TIM_CHANNEL_1, (float)adc_value / 4095);				// TODO THis like is for debugging, remove
 
 	// Run the PID controller
 	pid_output = run_PID(adc_voltage, voltage_setpoint);
 	set_PWM_duty(&htim1, TIM_CHANNEL_1, pid_output.ret);								// TODO Uncomment this line when PID ready.
+  // Temporarily replace the PID output
+  // set_PWM_duty(&htim1, TIM_CHANNEL_1, 0.01f);
 
 	// Debug output
-	snprintf((char*)debug_string, debug_string_len, "ADC value:\t %u (%f V)\nPID output:\n\t P:\t%f\n\t I:\t%f\n\t D:\t%f\n\t i_sum:\t%f\n\t ret:\t%f\n", (unsigned int)adc_value, adc_voltage, pid_output.p, pid_output.i, pid_output.d, pid_output.e_sum, pid_output.ret);	// Format debug string
+	snprintf((char*)debug_string, debug_string_len, "\nADC value:\t %u (%f V)\nPID output:\n\t P:\t%f\n\t I:\t%f\n\t D:\t%f\n\t i_sum:\t%f\n\t ret:\t%f\n\t setpoint:\t%f\n\t error: \t%f\n", (unsigned int)adc_value, adc_voltage, pid_output.p, pid_output.i, pid_output.d, pid_output.e_sum, pid_output.ret, voltage_setpoint, last_error);	// Format debug string
 	HAL_UART_Transmit(&huart2, debug_string, debug_string_len, 200);																// Transmit debug string
 	memset(debug_string, 0, debug_string_len);																					// Clear debug string
 
@@ -165,7 +170,7 @@ int main(void)
 
 
 
-	HAL_Delay(100);				// TODO change to logical value / delete
+	HAL_Delay(10);				// TODO change to logical value / delete
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -246,7 +251,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
@@ -263,7 +268,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_12;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();

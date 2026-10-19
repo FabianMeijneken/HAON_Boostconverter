@@ -8,7 +8,7 @@
 
 
 uint32_t last_PID_runtime = 0;
-uint32_t last_error = 0;
+float last_error = 0;
 float e_sum = 0;
 
 struct pid_output_type pid_return;
