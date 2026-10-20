@@ -438,7 +438,7 @@ static void MX_GPIO_Init(void)
 void set_PWM_duty(TIM_HandleTypeDef *htim, uint32_t channel, float duty)
 {
     // Clamp the duty between 0 and 1 using ternary operators
-    duty = (duty > 1.0f) ? 1.0f : duty;
+    duty = (duty > max_duty) ? max_duty : duty;
     duty = (duty < 0.0f) ? 0.0f : duty;
 
     // Calculate the compare value dynamically using the timer instance's ARR
@@ -448,7 +448,7 @@ void set_PWM_duty(TIM_HandleTypeDef *htim, uint32_t channel, float duty)
 float ADC_to_V(int adc_value)
 {
 	float voltage = (float)adc_value / (float)4095 * V_max_ADC;
-	voltage = voltage * V_divider;
+	voltage = voltage * (V_divider + V_offset);
 	return voltage;
 }
 

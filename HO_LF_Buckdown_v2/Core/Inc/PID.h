@@ -13,7 +13,7 @@
 #include "main.h"
 
 // Constants
-#define kP .1f
+#define kP .06f
 #define kI .01f
 #define kD .0f
 
