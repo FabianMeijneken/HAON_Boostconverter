@@ -14,8 +14,8 @@
 
 // Constants
 #define kP .05f
-#define kI .005f
-#define kD .01f
+#define kI .005f		// 0.005
+#define kD .02f
 #define PID_deadzone .05f		// in Volts
 
 // Functions
