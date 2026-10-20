@@ -10,6 +10,7 @@
 uint32_t last_PID_runtime = 0;
 float last_error = 0;
 float e_sum = 0;
+float last_PID_output = 0;
 
 struct pid_output_type pid_return;
 
@@ -23,6 +24,15 @@ struct pid_output_type run_PID(float current_voltage, float setpoint)
 	float dt = fmax(current_time - last_PID_runtime, 1);				// delta time
 	float error = setpoint - current_voltage;				// current error
 	float de	 = error - last_error;							// delta error
+
+	if (fabs(error) < PID_deadzone) {
+		pid_return.p = 0;
+		pid_return.i = 0;
+		pid_return.d = 0;
+		pid_return.e_sum = e_sum;
+		pid_return.ret = last_PID_output;
+		return pid_return;
+	}
 
 	// P element
 	float p_element = kP * error;
@@ -40,6 +50,7 @@ struct pid_output_type run_PID(float current_voltage, float setpoint)
 
 	last_error = error;										// Save the last error
 	last_PID_runtime = current_time;
+	last_PID_output = PID_out;
 
 	pid_return.p = p_element;
 	pid_return.i = i_element;

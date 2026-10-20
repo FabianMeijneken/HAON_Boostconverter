@@ -13,9 +13,10 @@
 #include "main.h"
 
 // Constants
-#define kP .06f
-#define kI .01f
-#define kD .0f
+#define kP .05f
+#define kI .005f
+#define kD .01f
+#define PID_deadzone .05f		// in Volts
 
 // Functions
 struct pid_output_type run_PID(float current_voltage, float setpoint);

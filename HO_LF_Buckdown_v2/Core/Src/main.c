@@ -46,6 +46,7 @@ TIM_HandleTypeDef htim1;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -112,10 +113,10 @@ int main(void)
 
   uint8_t UART_Rx_buf[16] = {0};
   uint8_t debug_string[debug_string_len];
-  uint32_t adc_value = 0;								// This value is outside of while(1) loop so we still have value in case of an ADC timeout.
+  uint32_t adc_value[ADC_MAF_length];								// This value is outside of while(1) loop so we still have value in case of an ADC timeout.
 
   struct pid_output_type pid_output;
-  float voltage_setpoint = 3;
+  float voltage_setpoint = boost_start_V;
 
 
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, UART_Rx_buf, 16);
@@ -125,26 +126,40 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
 	// Get new ADC value
-  if (HAL_ADC_Start(&hadc1) == HAL_OK &&
-    HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)	// Give the ADC 100ms to convert.
-  {
-    adc_value = HAL_ADC_GetValue(&hadc1);
-  }
-  HAL_ADC_Stop(&hadc1);
-	float adc_voltage = ADC_to_V(adc_value);
+	if (HAL_ADC_Start(&hadc1) == HAL_OK &&
+	HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK)	// Give the ADC 100ms to convert.
+	{
+		for (int i = ADC_MAF_length - 1; i > 0; i--) {
+			adc_value[i] = adc_value[i - 1];
+		}
+		adc_value[0] = HAL_ADC_GetValue(&hadc1);
+	}
+	HAL_ADC_Stop(&hadc1);
+
+	float adc_sum = 0;
+	for (int i = 0; i < ADC_MAF_length; i++) {
+		adc_sum += adc_value[i];
+	}
+
+	float adc_avr = adc_sum / ADC_MAF_length;
+
+	float adc_voltage = ADC_to_V(adc_avr);
 //	set_PWM_duty(&htim1, TIM_CHANNEL_1, (float)adc_value / 4095);				// TODO THis like is for debugging, remove
 
 	// Run the PID controller
 	pid_output = run_PID(adc_voltage, voltage_setpoint);
-	set_PWM_duty(&htim1, TIM_CHANNEL_1, pid_output.ret);								// TODO Uncomment this line when PID ready.
+
+	set_PWM_duty(&htim1, TIM_CHANNEL_1, pid_output.ret + (1-(3/voltage_setpoint)));								// TODO Uncomment this line when PID ready.
   // Temporarily replace the PID output
   // set_PWM_duty(&htim1, TIM_CHANNEL_1, 0.01f);
 
 	// Debug output
-	snprintf((char*)debug_string, debug_string_len, "\nADC value:\t %u (%f V)\nPID output:\n\t P:\t%f\n\t I:\t%f\n\t D:\t%f\n\t i_sum:\t%f\n\t ret:\t%f\n\t setpoint:\t%f\n\t error: \t%f\n", (unsigned int)adc_value, adc_voltage, pid_output.p, pid_output.i, pid_output.d, pid_output.e_sum, pid_output.ret, voltage_setpoint, last_error);	// Format debug string
-	HAL_UART_Transmit(&huart2, debug_string, debug_string_len, 200);																// Transmit debug string
-	memset(debug_string, 0, debug_string_len);																					// Clear debug string
+	memset(debug_string, 0, debug_string_len);
+	snprintf((char*)debug_string, debug_string_len, "\nADC value:\t %u (%f V)\nPID output:\n\t P:\t%f\n\t I:\t%f\n\t D:\t%f\n\t i_sum:\t%f\n\t ret:\t%f\n\t setpoint:\t%f\n\t error: \t%f\n", (unsigned int)adc_value, adc_voltage, pid_output.p, pid_output.i, pid_output.d, pid_output.e_sum, pid_output.ret, voltage_setpoint, (voltage_setpoint - adc_voltage));	 // Format debug string
+	HAL_UART_Transmit_DMA(&huart2, debug_string, debug_string_len); // Transmit debug string
+																					// Clear debug string
 
 
 	// Change voltage_setpoint upon receiving new USART message
@@ -154,10 +169,10 @@ int main(void)
 
 		voltage_setpoint = fmin(fmax(voltage_setpoint, 0), boost_max_V);			// Remove below-zero values, and values above
 
-
+		memset(debug_string, 0, 100);
 		snprintf((char*)debug_string, debug_string_len, "New voltage setpoint:\t %f", voltage_setpoint);		// Format debug string
-		HAL_UART_Transmit(&huart2, debug_string, debug_string_len, 200);										// Transmit debug string
-		memset(debug_string, 0, 100);																		// Clear debug string
+		HAL_UART_Transmit_DMA(&huart2, debug_string, debug_string_len);										// Transmit debug string
+																		// Clear debug string
 
 
 		// reset the new_USART_2_message variable, buffer, and recieve a new message, and disable half transfer interrupt again.
@@ -170,7 +185,7 @@ int main(void)
 
 
 
-	HAL_Delay(10);				// TODO change to logical value / delete
+	HAL_Delay(50);				// TODO change to logical value / delete
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -404,6 +419,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
 
 }
 
