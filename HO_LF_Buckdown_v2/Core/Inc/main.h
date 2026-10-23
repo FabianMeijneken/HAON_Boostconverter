@@ -54,10 +54,14 @@ struct pid_output_type {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-#define debug_string_len 150
+#define debug_string_len	180
+#define ADC_MAF_length	25
 #define V_max_ADC 	2.956f		// This is the measured voltage over the ADC at which the ADC reads 4095
 #define boost_max_V	7.5f
-#define V_divider	12.5f
+#define boost_start_V	3.5f
+#define V_divider	12.7090833f	// 15810 and 11945 ohm resistors.
+#define V_offset		0.9f			// 15810 and 11945 ohm resistors.
+#define max_duty		0.8f			// limit duty to 80 %
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

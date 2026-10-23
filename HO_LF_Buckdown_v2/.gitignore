@@ -1,3 +1,5 @@
 .settings/
 Debug/
 *.launch
+/.vscode/
+.vscode/
