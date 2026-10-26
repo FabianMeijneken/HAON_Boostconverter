@@ -34,11 +34,18 @@ struct pid_output_type run_PID(float current_voltage, float setpoint)
 		return pid_return;
 	}
 
+	bool saturated_upper = (last_PID_output >= MAX_DUTY) && (error > 0);
+	bool saturated_lower = (last_PID_output <= 0.0f) && (error < 0);
+
+	if (!saturated_upper && !saturated_lower) {
+		e_sum += error;
+	}
+
 	// P element
 	float p_element = kP * error;
 
 	// I element
-	e_sum += error;
+//	e_sum += error;
 	float i_element = kI * e_sum;
 
 	// D element
@@ -47,11 +54,15 @@ struct pid_output_type run_PID(float current_voltage, float setpoint)
 	// PID sum
 	float PID_out = p_element + i_element + d_element;
 
+	// clamp PID output between maximum values:
+	PID_out = fmax(fmin(PID_out, MAX_DUTY), 0);
 
-	last_error = error;										// Save the last error
+	// Save current values as "last"
+	last_error = error;
 	last_PID_runtime = current_time;
 	last_PID_output = PID_out;
 
+	// Format return struct.
 	pid_return.p = p_element;
 	pid_return.i = i_element;
 	pid_return.d = d_element;

@@ -111,8 +111,8 @@ int main(void)
   set_PWM_duty(&htim1, TIM_CHANNEL_1, 0.0f);
   set_PWM_duty(&htim1, TIM_CHANNEL_2, 0.5f);
 
-  uint8_t UART_Rx_buf[16] = {0};
   uint8_t debug_string[debug_string_len];
+  uint8_t UART_Rx_buf[16] = {0};
   uint32_t adc_value[ADC_MAF_length];								// This value is outside of while(1) loop so we still have value in case of an ADC timeout.
 
   struct pid_output_type pid_output;
@@ -146,20 +146,23 @@ int main(void)
 	float adc_avr = adc_sum / ADC_MAF_length;
 
 	float adc_voltage = ADC_to_V(adc_avr);
-//	set_PWM_duty(&htim1, TIM_CHANNEL_1, (float)adc_value / 4095);				// TODO THis like is for debugging, remove
 
 	// Run the PID controller
 	pid_output = run_PID(adc_voltage, voltage_setpoint);
 
-	set_PWM_duty(&htim1, TIM_CHANNEL_1, pid_output.ret + (1-(3/voltage_setpoint)));								// TODO Uncomment this line when PID ready.
+//	set_PWM_duty(&htim1, TIM_CHANNEL_1, pid_output.ret + (1-(3/voltage_setpoint)));
+	set_PWM_duty(&htim1, TIM_CHANNEL_1, pid_output.ret);
+
   // Temporarily replace the PID output
   // set_PWM_duty(&htim1, TIM_CHANNEL_1, 0.01f);
 
+
 	// Debug output
-	memset(debug_string, 0, debug_string_len);
-	snprintf((char*)debug_string, debug_string_len, "\nADC value:\t %u (%f V)\nPID output:\n\t P:\t%f\n\t I:\t%f\n\t D:\t%f\n\t i_sum:\t%f\n\t ret:\t%f\n\t setpoint:\t%f\n\t error: \t%f\n", (unsigned int)adc_value, adc_voltage, pid_output.p, pid_output.i, pid_output.d, pid_output.e_sum, pid_output.ret, voltage_setpoint, (voltage_setpoint - adc_voltage));	 // Format debug string
-	HAL_UART_Transmit_DMA(&huart2, debug_string, debug_string_len); // Transmit debug string
-																					// Clear debug string
+	if (ENABLE_OUTPUT) {
+		memset(debug_string, 0, debug_string_len);
+		snprintf((char*)debug_string, debug_string_len, "\nADC value:\t %u (%f V)\nPID output:\n\t P:\t%f\n\t I:\t%f\n\t D:\t%f\n\t i_sum:\t%f\n\t ret:\t%f\n\t setpoint:\t%f\n\t error: \t%f\n", (unsigned int)adc_value, adc_voltage, pid_output.p, pid_output.i, pid_output.d, pid_output.e_sum, pid_output.ret, voltage_setpoint, (voltage_setpoint - adc_voltage));	 // Format debug string
+		HAL_UART_Transmit_DMA(&huart2, debug_string, debug_string_len); // Transmit debug string
+	}																		// Clear debug string
 
 
 	// Change voltage_setpoint upon receiving new USART message
@@ -169,7 +172,7 @@ int main(void)
 
 		voltage_setpoint = fmin(fmax(voltage_setpoint, 0), boost_max_V);			// Remove below-zero values, and values above
 
-		memset(debug_string, 0, 100);
+		memset(debug_string, 0, debug_string_len);
 		snprintf((char*)debug_string, debug_string_len, "New voltage setpoint:\t %f", voltage_setpoint);		// Format debug string
 		HAL_UART_Transmit_DMA(&huart2, debug_string, debug_string_len);										// Transmit debug string
 																		// Clear debug string
@@ -185,7 +188,7 @@ int main(void)
 
 
 
-	HAL_Delay(50);				// TODO change to logical value / delete
+//	HAL_Delay(50);				// TODO change to logical value / delete
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -456,7 +459,7 @@ static void MX_GPIO_Init(void)
 void set_PWM_duty(TIM_HandleTypeDef *htim, uint32_t channel, float duty)
 {
     // Clamp the duty between 0 and 1 using ternary operators
-    duty = (duty > max_duty) ? max_duty : duty;
+    duty = (duty > MAX_DUTY) ? MAX_DUTY : duty;
     duty = (duty < 0.0f) ? 0.0f : duty;
 
     // Calculate the compare value dynamically using the timer instance's ARR
